@@ -1,14 +1,21 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+)
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError, RpcCallFailError
 
 API_ID = 22731419
-API_HASH = '2e2a9ce500a5bd08bae56f6ac2cc4890'
-BOT_TOKEN = '7936881674:AAFhO3rBeNLqCka4xDQ3UenJCF8PMpxf1cE'
+API_HASH = "2e2a9ce500a5bd08bae56f6ac2cc4890"
+BOT_TOKEN = "7936881674:AAFhO3rBeNLqCka4xDQ3UenJCF8PMpxf1cE"
 
+# Guruhlar ro‘yxati
 GROUPS = [
     "https://t.me/Toshkent_bogdod_buvayda_taksi",
     "https://t.me/buvayda_toshkent_buvayda_taxi",
@@ -84,10 +91,12 @@ GROUPS = [
     4659544802,
 ]
 
+# --- Aiogram va Telethon ---
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 client = TelegramClient("elon_session", API_ID, API_HASH)
 
+# Foydalanuvchi ma’lumotlari
 user_data = {}
 last_messages = {}
 
@@ -96,20 +105,23 @@ last_messages = {}
 def start_menu():
     return InlineKeyboardMarkup().add(InlineKeyboardButton("📤 E'lon berish", callback_data="elon"))
 
+
 def confirm_menu():
     return InlineKeyboardMarkup().add(InlineKeyboardButton("✅ Tasdiqlash", callback_data="tasdiqla"))
+
 
 def cancel_reply_button():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("⛔ To‘xtatish"))
     return kb
 
+
 def new_ad_button():
     return InlineKeyboardMarkup().add(InlineKeyboardButton("📤 Yangi e'lon", callback_data="elon"))
 
 
 # --- Start ---
-@dp.message_handler(commands=['start'])
+@dp.message_handler(commands=["start"])
 async def start(message: types.Message):
     await message.answer("Assalomu alaykum!\nE'lon yuborish uchun quyidagini tanlang:", reply_markup=start_menu())
 
@@ -134,48 +146,53 @@ async def callbacks(call: types.CallbackQuery):
         await call.message.answer("📤 E'lon yuborilmoqda...", reply_markup=cancel_reply_button())
         text = user_data[user_id]["text"]
 
-        async def continuous_send():
-            while not user_data.get(user_id, {}).get("stop"):
-                # Eski xabarlarni o‘chirish
-                for group, msg in list(last_messages.items()):
-                    try:
-                        if not client.is_connected():
-                            await client.start()
-                        await client.delete_messages(group, msg.id)
-                    except:
-                        pass
-                last_messages.clear()
+        # faqat tasdiqlanganda ishlaydi
+        asyncio.create_task(send_ads(user_id, text))
 
-                # Yangi yuborish
-                for group in GROUPS:
-                    if user_data.get(user_id, {}).get("stop"):
-                        await bot.send_message(user_id, "❌ Yuborish to‘xtatildi.", reply_markup=new_ad_button())
-                        return
-                    try:
-                        if not client.is_connected():
-                            await client.start()
-                        sent = await client.send_message(group, text)
-                        last_messages[group] = sent
-                        await bot.send_message(user_id, f"✅ Yuborildi: {group}")
 
-                    except FloodWaitError as e:
-                        await bot.send_message(user_id, f"⏱ FloodWait: kutish {e.seconds} sekund ({group})")
-                        await asyncio.sleep(e.seconds)
-                        continue
+# --- Elonni yuborish ---
+async def send_ads(user_id, text):
+    while not user_data.get(user_id, {}).get("stop"):
+        # Eski xabarlarni o‘chirish
+        for group, msg in list(last_messages.items()):
+            try:
+                if not client.is_connected():
+                    await client.start()
+                await client.delete_messages(group, msg.id)
+            except:
+                pass
+        last_messages.clear()
 
-                    except RpcCallFailError as e:
-                        await bot.send_message(user_id, f"⚠ RPC xato: {group}\n{e}")
-                        continue
+        # Yangi yuborish
+        for group in GROUPS:
+            if user_data.get(user_id, {}).get("stop"):
+                await bot.send_message(user_id, "❌ Yuborish to‘xtatildi.", reply_markup=new_ad_button())
+                return
 
-                    except Exception as e:
-                        await bot.send_message(user_id, f"❌ Xatolik: {group}\n{e}")
-                        continue
+            try:
+                if not client.is_connected():
+                    await client.start()
 
-                    await asyncio.sleep(2)  # har bir guruh orasida delay
+                sent = await client.send_message(group, text)
+                last_messages[group] = sent
+                await bot.send_message(user_id, f"✅ Yuborildi: {group}")
 
-                await asyncio.sleep(180)  # 3 minut kutish
+            except FloodWaitError as e:
+                await bot.send_message(user_id, f"⏱ FloodWait: kutish {e.seconds} sekund ({group})")
+                await asyncio.sleep(e.seconds)
+                continue
 
-        asyncio.create_task(continuous_send())
+            except RpcCallFailError as e:
+                await bot.send_message(user_id, f"⚠ RPC xato: {group}\n{e}")
+                continue
+
+            except Exception as e:
+                await bot.send_message(user_id, f"❌ Xatolik: {group}\n{e}")
+                continue
+
+            await asyncio.sleep(2)  # har bir guruh orasida delay
+
+        await asyncio.sleep(180)  # keyingi aylanishdan oldin kutish
 
 
 # --- To‘xtatish tugmasi ---
@@ -207,5 +224,5 @@ async def main():
     await dp.start_polling()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
